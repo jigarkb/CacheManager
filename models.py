@@ -1,6 +1,10 @@
 import ramcloud
 import heapq
 import linkedlist
+import logging
+import time
+
+logging.basicConfig(filename="~/logs/cachemanager_%d-%d.log".format(os.getpid(), int(time.time()*1000000)), level=logging.INFO)
 
 
 class KeyMetaData(object):
@@ -31,19 +35,20 @@ class CacheManager(ramcloud.RAMCloud):
         self.max_size = 0
 
     def write(self, table_id, id, data, want_version=None, cost=1):
-
+        data_size = len(data)
+        if self.max_size < data_size:
+            self.max_size = data_size
+        logging.debug("CacheManager.write called with table_id: {}, id: {}, data size: {}, cost: {}, want_version: {}".
+                      format(table_id, id, data_size, cost, want_version))
         try:
             self.delete(table_id, id, want_version)
         except ramcloud.ObjectExistsError:
             pass
 
-        data_size = len(data)
-        if self.max_size < data_size:
-            self.max_size = data_size
-
         try:
             super(CacheManager, self).write(table_id, id, data, want_version)
         except ramcloud.RetryExceptionError:
+            logging.debug("CacheManager.write: No free memory, will delete some data...")
             removed = 0
             while removed > data_size:
                 min_priority, cs_ratio = self.camp_heap[0]
@@ -51,9 +56,10 @@ class CacheManager(ramcloud.RAMCloud):
                     self.csratio_ll[cs_ratio].anchor.next.data.table_id,
                     self.csratio_ll[cs_ratio].anchor.next.data.id
                 )
+                logging.debug("CacheManager.write: data removed size: {}".format(removed))
 
             super(CacheManager, self).write(table_id, id, data, want_version)
-
+            logging.debug("CacheManager.write: successfully cached new data")
             cs_ratio = self.get_cs_ratio(cost, data_size)
             priority = self.L + cs_ratio
             key_meta_data = KeyMetaData(
@@ -65,22 +71,29 @@ class CacheManager(ramcloud.RAMCloud):
                 priority=priority)
 
             if cs_ratio not in self.csratio_ll:
+                logging.debug("CacheManager.write: new cs_ratio {} seen, creating linkedlist".format(cs_ratio))
                 self.csratio_ll[cs_ratio] = linkedlist.LinkedList()
                 self.csratio_ll[cs_ratio].append(key_meta_data)
+                logging.debug("CacheManager.write: heappush ({}, {})".format(priority, cs_ratio))
                 heapq.heappush(self.camp_heap, (priority, cs_ratio))
             else:
                 self.csratio_ll[cs_ratio].append(key_meta_data)
             key_ = "{}/{}".format(table_id, id)
+            logging.debug("CacheManager.write: associating key {} to cs_ratio {}".format(key_, cs_ratio))
             self.key_csratio[key_] = cs_ratio
 
     def get_cs_ratio(self, cost, size):
+        logging.debug("CacheManager.get_cs_ratio called for cost: {}, size: {}".format(cost, size))
         integer = int(cost*self.max_size/float(size))
 
         rounded_value = integer  # ToDo perform rounding scheme
 
+        logging.debug("CacheManager.get_cs_ratio: rounded value: {}".format(rounded_value))
         return rounded_value
 
     def read(self, table_id, id, want_version=None):
+        logging.debug("CacheManager.read called with table_id: {}, id: {}, want_version: {}".
+                      format(table_id, id, want_version))
         data = super(CacheManager, self).read(table_id, id, want_version)
         key_ = "{}/{}".format(table_id, id)
         cs_ratio = self.key_csratio.get(key_, None)
@@ -89,6 +102,7 @@ class CacheManager(ramcloud.RAMCloud):
             if ll and ll.len > 0:
                 node = ll.anchor.next
                 if node.data.table_id == table_id and node.data.id == id:
+                    logging.debug("CacheManager.read: reading head node")
                     i = self.camp_heap.index((node.data.priority, cs_ratio))
                     self.camp_heap[i] = self.camp_heap[-1]
                     self.camp_heap.pop()
@@ -97,8 +111,10 @@ class CacheManager(ramcloud.RAMCloud):
                         heapq._siftdown(self.camp_heap, 0, i)
                     node_data = node.data
                     ll.unlink(node)
+                    logging.debug("CacheManager.read: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
                     heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
                     self.L, cs_ratio = self.camp_heap[0]
+                    logging.debug("CacheManager.read: updated L to: {}".format(self.L))
                 else:
                     node = node.next
                     while node is not None:
@@ -107,10 +123,13 @@ class CacheManager(ramcloud.RAMCloud):
                             ll.unlink(node)
 
                 node_data.priority = self.L + cs_ratio
+                logging.debug("CacheManager.read: new priority: {}".format(node_data.priority))
                 self.csratio_ll[cs_ratio].append(node_data)
         return data
 
     def delete(self, table_id, id, want_version=None):
+        logging.debug("CacheManager.delete called with table_id: {}, id: {}, want_version: {}".
+                      format(table_id, id, want_version))
         super(CacheManager, self).delete(table_id, id, want_version)
 
         size = 0
@@ -120,8 +139,8 @@ class CacheManager(ramcloud.RAMCloud):
             ll = self.csratio_ll.get(cs_ratio, None)
             if ll and ll.len > 0:
                 node = ll.anchor.next
-
                 if node.data.table_id == table_id and node.data.id == id:
+                    logging.debug("CacheManager.delete: deleting head node")
                     size = node.data.size
                     i = self.camp_heap.index((node.data.priority, cs_ratio))
                     self.camp_heap[i] = self.camp_heap[-1]
@@ -130,8 +149,10 @@ class CacheManager(ramcloud.RAMCloud):
                         heapq._siftup(self.camp_heap, i)
                         heapq._siftdown(self.camp_heap, 0, i)
                     ll.unlink(node)
+                    logging.debug("CacheManager.delete: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
                     heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
                     self.L, cs_ratio = self.camp_heap[0]
+                    logging.debug("CacheManager.delete: updated L to: {}".format(self.L))
                     return size
                 else:
                     node = node.next
@@ -140,5 +161,5 @@ class CacheManager(ramcloud.RAMCloud):
                             size = node.data.size
                             ll.unlink(node)
                             return size
-
+        logging.debug("CacheManager.delete: deleted {} bytes".format(size))
         return size
