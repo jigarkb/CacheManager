@@ -3,6 +3,7 @@ import heapq
 import linkedlist
 import logging
 import time
+import os
 
 logging.basicConfig(filename="~/logs/cachemanager_%d-%d.log".format(os.getpid(), int(time.time()*1000000)), level=logging.INFO)
 
