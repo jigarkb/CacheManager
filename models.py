@@ -74,14 +74,14 @@ class CacheManager(ramcloud.RAMCloud):
             self.key_csratio[key_] = cs_ratio
 
     def get_cs_ratio(self, cost, size):
-        integer = cost*self.max_size/float(size)
+        integer = int(cost*self.max_size/float(size))
 
         rounded_value = integer  # ToDo perform rounding scheme
 
         return rounded_value
 
     def read(self, table_id, id, want_version=None):
-        super(CacheManager, self).read(table_id, id, want_version)
+        data = super(CacheManager, self).read(table_id, id, want_version)
         key_ = "{}/{}".format(table_id, id)
         cs_ratio = self.key_csratio.get(key_, None)
         if cs_ratio:
@@ -97,6 +97,18 @@ class CacheManager(ramcloud.RAMCloud):
                         heapq._siftdown(self.camp_heap, 0, i)
                     node_data = node.data
                     ll.unlink(node)
+                    heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
+                    self.L, cs_ratio = self.camp_heap[0]
+                else:
+                    node = node.next
+                    while node is not None:
+                        if node.data.table_id == table_id and node.data.id == id:
+                            node_data = node.data
+                            ll.unlink(node)
+
+                node_data.priority = self.L + cs_ratio
+                self.csratio_ll[cs_ratio].append(node_data)
+        return data
 
     def delete(self, table_id, id, want_version=None):
         super(CacheManager, self).delete(table_id, id, want_version)
@@ -123,11 +135,10 @@ class CacheManager(ramcloud.RAMCloud):
                     return size
                 else:
                     node = node.next
-
-                while node is not None:
-                    if node.data.table_id == table_id and node.data.id == id:
-                        size = node.data.size
-                        ll.unlink(node)
-                        return size
+                    while node is not None:
+                        if node.data.table_id == table_id and node.data.id == id:
+                            size = node.data.size
+                            ll.unlink(node)
+                            return size
 
         return size
