@@ -60,28 +60,28 @@ class CacheManager(ramcloud.RAMCloud):
                 logging.debug("CacheManager.write: data removed size: {}".format(removed))
 
             super(CacheManager, self).write(table_id, id, data, want_version)
-            logging.debug("CacheManager.write: successfully cached new data")
-            cs_ratio = self.get_cs_ratio(cost, data_size)
-            priority = self.L + cs_ratio
-            key_meta_data = KeyMetaData(
-                table_id=table_id,
-                id=id,
-                cost=cost,
-                size=data_size,
-                cs_ratio=cs_ratio,
-                priority=priority)
+        logging.debug("CacheManager.write: successfully cached new data")
+        cs_ratio = self.get_cs_ratio(cost, data_size)
+        priority = self.L + cs_ratio
+        key_meta_data = KeyMetaData(
+            table_id=table_id,
+            id=id,
+            cost=cost,
+            size=data_size,
+            cs_ratio=cs_ratio,
+            priority=priority)
 
-            if cs_ratio not in self.csratio_ll:
-                logging.debug("CacheManager.write: new cs_ratio {} seen, creating linkedlist".format(cs_ratio))
-                self.csratio_ll[cs_ratio] = linkedlist.LinkedList()
-                self.csratio_ll[cs_ratio].append(key_meta_data)
-                logging.debug("CacheManager.write: heappush ({}, {})".format(priority, cs_ratio))
-                heapq.heappush(self.camp_heap, (priority, cs_ratio))
-            else:
-                self.csratio_ll[cs_ratio].append(key_meta_data)
-            key_ = "{}/{}".format(table_id, id)
-            logging.debug("CacheManager.write: associating key {} to cs_ratio {}".format(key_, cs_ratio))
-            self.key_csratio[key_] = cs_ratio
+        if cs_ratio not in self.csratio_ll:
+            logging.debug("CacheManager.write: new cs_ratio {} seen, creating linkedlist".format(cs_ratio))
+            self.csratio_ll[cs_ratio] = linkedlist.LinkedList()
+            self.csratio_ll[cs_ratio].append(key_meta_data)
+            logging.debug("CacheManager.write: heappush ({}, {})".format(priority, cs_ratio))
+            heapq.heappush(self.camp_heap, (priority, cs_ratio))
+        else:
+            self.csratio_ll[cs_ratio].append(key_meta_data)
+        key_ = "{}/{}".format(table_id, id)
+        logging.debug("CacheManager.write: associating key {} to cs_ratio {}".format(key_, cs_ratio))
+        self.key_csratio[key_] = cs_ratio
 
     def get_cs_ratio(self, cost, size):
         logging.debug("CacheManager.get_cs_ratio called for cost: {}, size: {}".format(cost, size))
