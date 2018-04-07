@@ -112,10 +112,11 @@ class CacheManager(ramcloud.RAMCloud):
                         heapq._siftdown(self.camp_heap, 0, i)
                     node_data = node.data
                     ll.unlink(node)
-                    logging.debug("CacheManager.read: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
-                    heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
-                    self.L, cs_ratio = self.camp_heap[0]
-                    logging.debug("CacheManager.read: updated L to: {}".format(self.L))
+                    if ll.anchor.next.data:
+                        logging.debug("CacheManager.read: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
+                        heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
+                        self.L, cs_ratio = self.camp_heap[0]
+                        logging.debug("CacheManager.read: updated L to: {}".format(self.L))
                 else:
                     node = node.next
                     while node is not None:
@@ -150,10 +151,11 @@ class CacheManager(ramcloud.RAMCloud):
                         heapq._siftup(self.camp_heap, i)
                         heapq._siftdown(self.camp_heap, 0, i)
                     ll.unlink(node)
-                    logging.debug("CacheManager.delete: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
-                    heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
-                    self.L, cs_ratio = self.camp_heap[0]
-                    logging.debug("CacheManager.delete: updated L to: {}".format(self.L))
+                    if ll.anchor.next.data:
+                        logging.debug("CacheManager.delete: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
+                        heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
+                        self.L, cs_ratio = self.camp_heap[0]
+                        logging.debug("CacheManager.delete: updated L to: {}".format(self.L))
                     return size
                 else:
                     node = node.next
