@@ -157,11 +157,14 @@ class CacheManager(ramcloud.RAMCloud):
                         heapq._siftup(self.camp_heap, i)
                         heapq._siftdown(self.camp_heap, 0, i)
                     ll.unlink(node)
-                    if ll.anchor.next.data:
+                    del self.key_csratio[key_]
+                    if ll.len > 0:
                         logging.debug("CacheManager.delete: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
                         heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
                         self.L, cs_ratio = self.camp_heap[0]
                         logging.debug("CacheManager.delete: updated L to: {}".format(self.L))
+                    else:
+                        del self.csratio_ll[cs_ratio]
                     logging.debug("CacheManager.delete: deleted {} bytes".format(size))
                     return size
                 else:
@@ -170,6 +173,7 @@ class CacheManager(ramcloud.RAMCloud):
                         if node.data.table_id == table_id and node.data.id == id:
                             size = node.data.size
                             ll.unlink(node)
+                            del self.key_csratio[key_]
                             logging.debug("CacheManager.delete: deleted {} bytes".format(size))
                             return size
         logging.debug("CacheManager.delete: deleted {} bytes".format(size))
