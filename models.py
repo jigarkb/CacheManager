@@ -112,21 +112,27 @@ class CacheManager(ramcloud.RAMCloud):
                         heapq._siftdown(self.camp_heap, 0, i)
                     node_data = node.data
                     ll.unlink(node)
-                    if ll.anchor.next.data:
+
+                    if ll.len == 0:
+                        node_data.priority = self.L + cs_ratio
+                        self.csratio_ll[cs_ratio].append(node_data)
                         logging.debug("CacheManager.read: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
                         heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
-                        self.L, cs_ratio = self.camp_heap[0]
+                    else:
+                        logging.debug("CacheManager.read: heappush ({}, {})".format(ll.anchor.next.data.priority, cs_ratio))
+                        heapq.heappush(self.camp_heap, (ll.anchor.next.data.priority, cs_ratio))
+                        self.L, cs_ratio_min_heap = self.camp_heap[0]
                         logging.debug("CacheManager.read: updated L to: {}".format(self.L))
+                        node_data.priority = self.L + cs_ratio
                 else:
                     node = node.next
                     while node is not None:
                         if node.data.table_id == table_id and node.data.id == id:
                             node_data = node.data
                             ll.unlink(node)
-
-                node_data.priority = self.L + cs_ratio
-                logging.debug("CacheManager.read: new priority: {}".format(node_data.priority))
-                self.csratio_ll[cs_ratio].append(node_data)
+                            node_data.priority = self.L + cs_ratio
+                            logging.debug("CacheManager.read: new priority: {}".format(node_data.priority))
+                            self.csratio_ll[cs_ratio].append(node_data)
         return data
 
     def delete(self, table_id, id, want_version=None):
