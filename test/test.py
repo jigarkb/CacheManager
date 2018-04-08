@@ -18,3 +18,4 @@ while True:
     object_id = "object{}".format(i)
     cm.write(table_id, object_id, sample_data_mb)
     print "written {}".format(object_id)
+    i += 1
