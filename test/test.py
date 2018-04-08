@@ -1,4 +1,5 @@
 import sys
+import time
 
 sys.path.append('..')
 import cachemanager
@@ -19,3 +20,4 @@ while True:
     cm.write(table_id, object_id, sample_data_mb)
     print "written {}".format(object_id)
     i += 1
+    time.sleep(2)
