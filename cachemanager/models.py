@@ -44,6 +44,7 @@ class CacheManager(ramcloud.RAMCloud):
         try:
             self.delete(table_id, id, want_version)
         except ramcloud.ObjectExistsError:
+            logging.debug("CacheManager.write deleting object table_id: {}, id: {} which does not exists!".format(table_id, id))
             pass
 
         try:
