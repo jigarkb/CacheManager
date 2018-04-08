@@ -5,7 +5,7 @@ import logging
 import time
 import os
 
-logging.basicConfig(filename="/logs/cachemanager_{}-{}.log".format(os.getpid(), int(time.time()*1000000)), level=logging.DEBUG)
+logging.basicConfig(filename="/logs/cachemanager.log", level=logging.DEBUG)
 
 
 class KeyMetaData(object):
