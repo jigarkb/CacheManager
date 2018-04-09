@@ -19,5 +19,10 @@ while True:
     object_id = "object{}".format(i)
     cm.write(table_id, object_id, sample_data_mb)
     print "written {}".format(object_id)
+    print cm.camp_heap
+    print len(cm.csratio_ll[1])
+    print cm.key_csratio
+    print cm.L
+    print cm.max_size
     i += 1
     time.sleep(2)
