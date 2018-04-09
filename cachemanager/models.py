@@ -52,7 +52,7 @@ class CacheManager(ramcloud.RAMCloud):
         except ramcloud.RetryExceptionError:
             logging.debug("CacheManager.write: No free memory, will delete some data...")
             removed = 0
-            while removed > data_size:
+            while removed <= data_size:
                 min_priority, cs_ratio = self.camp_heap[0]
                 removed += self.delete(
                     self.csratio_ll[cs_ratio].anchor.next.data.table_id,
