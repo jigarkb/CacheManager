@@ -1,10 +1,16 @@
 import ramcloud
 import threading
+import time
 
 
-def write(table_id, object_id):
+def thread_write(table_id, object_id):
     print "writing object: {} to table: {}".format(object_id, table_id)
     rc.write(table_id, object_id, sample_value)
+
+
+def thread_delete(table_id, object_id):
+    print "deleting object: {} of table: {}".format(object_id, table_id)
+    rc.delete(table_id, object_id)
 
 
 if __name__ == "__main__":
@@ -19,15 +25,17 @@ if __name__ == "__main__":
     while True:
         i += 1
         object_id = "object{}".format(i)
-        t = threading.Thread(target=write, args=(table_id, object_id))
+        t = threading.Thread(target=thread_write, args=(table_id, object_id))
         t.start()
         t.join(timeout=5)
         if t.isAlive():
-            print "assuming thread {} timed out!".format(i)
+            print "Thread {} timed out!".format(i)
             break
+        time.sleep(2)
 
-    print "assuming memory full, deleting object"
-    try:
-        rc.delete(table_id, "object1")
-    except Exception as e:
-        print "delete failed with error: {}".format(e.message)
+    print "assuming memory full, trying to deleting object"
+    t = threading.Thread(target=thread_delete, args=(table_id, object_id))
+    t.start()
+    t.join(timeout=5)
+    if t.isAlive():
+        print "Delete thread timed out! Not able to delete???!!!".format(i)
