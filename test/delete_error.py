@@ -1,5 +1,5 @@
 import ramcloud
-import threading
+import multiprocessing
 import time
 
 
@@ -25,17 +25,19 @@ if __name__ == "__main__":
     while True:
         i += 1
         object_id = "object{}".format(i)
-        t = threading.Thread(target=thread_write, args=(table_id, object_id))
+        t = multiprocessing.Process(target=thread_write, args=(table_id, object_id))
         t.start()
         t.join(timeout=5)
-        if t.isAlive():
+        if t.is_alive():
             print "Thread {} timed out!".format(i)
+            t.terminate()
             break
         time.sleep(2)
 
     print "assuming memory full, trying to deleting object"
-    t = threading.Thread(target=thread_delete, args=(table_id, object_id))
+    t = multiprocessing.Process(target=thread_delete, args=(table_id, object_id))
     t.start()
     t.join(timeout=5)
-    if t.isAlive():
-        print "Delete thread timed out! Not able to delete???!!!".format(i)
+    if t.is_alive():
+        print "Delete thread timed out! Not able to delete???!!!"
+        t.terminate()
