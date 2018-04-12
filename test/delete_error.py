@@ -1,7 +1,7 @@
 import ramcloud
 import threading
 import time
-
+import sys
 
 def thread_write(table_id, object_id):
     print "writing object: {} to table: {}".format(object_id, table_id)
@@ -17,7 +17,7 @@ if __name__ == "__main__":
     sample_value = "\0"*1024*1024
 
     rc = ramcloud.RAMCloud()
-    rc.connect(serverLocator='tcp:host=35.202.174.235,port=8001')
+    rc.connect(serverLocator='tcp:host={},port=8001'.format(sys.argv[1]))
     rc.create_table("table1")
     table_id = rc.get_table_id("table1")
     timeout = 10
