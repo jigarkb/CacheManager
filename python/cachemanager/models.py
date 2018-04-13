@@ -2,8 +2,6 @@ import ramcloud
 import heapq
 import linkedlist
 import logging
-import time
-import os
 
 logging.basicConfig(filename="/logs/cachemanager.log", level=logging.DEBUG)
 
