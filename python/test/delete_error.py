@@ -34,7 +34,7 @@ if __name__ == "__main__":
         time.sleep(2)
 
     print "assuming memory full, trying to deleting object"
-    t = threading.Thread(target=thread_delete, args=(table_id, "object10"))
+    t = threading.Thread(target=thread_delete, args=(table_id, "object1"))
     t.start()
     t.join(timeout=timeout)
     if t.is_alive():
