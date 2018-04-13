@@ -35,8 +35,15 @@ if __name__ == "__main__":
             break
         time.sleep(2)
 
-    print "assuming memory full, trying to deleting object"
+    print "assuming memory full, trying to deleting object1"
     t = threading.Thread(target=thread_delete, args=(table_id, "object1"))
+    t.start()
+    t.join(timeout=timeout)
+    if t.is_alive():
+        print "Delete thread timed out! Not able to delete???!!!"
+
+    print "trying to deleting object2"
+    t = threading.Thread(target=thread_delete, args=(table_id, "object2"))
     t.start()
     t.join(timeout=timeout)
     if t.is_alive():
