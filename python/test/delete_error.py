@@ -6,11 +6,13 @@ import sys
 def thread_write(table_id, object_id):
     print "writing object: {} to table: {}".format(object_id, table_id)
     rc.write(table_id, object_id, sample_value)
+    print "successfully written!"
 
 
 def thread_delete(table_id, object_id):
     print "deleting object: {} of table: {}".format(object_id, table_id)
     rc.delete(table_id, object_id)
+    print "successfully deleted!"
 
 
 if __name__ == "__main__":
