@@ -1,14 +1,14 @@
 package edu.usc.cs685.models;
 
 public class KeyMetaData {
-    long table_id;
-    String id;
-    int cost;
-    int size;
-    int cs_ratio;
-    int priority;
+    public long table_id;
+    public String id;
+    public Integer cost;
+    public Integer size;
+    public Integer cs_ratio;
+    public Integer priority;
 
-    public KeyMetaData(long table_id, String id,int cost, int size, int cs_ratio, int priority) {
+    public KeyMetaData(long table_id, String id, Integer cost, Integer size, Integer cs_ratio, Integer priority) {
         this.table_id = table_id;
         this.id = id;
         this.cost = cost;

@@ -3,7 +3,7 @@ import edu.usc.cs685.models.Node;
 
 public class LinkedList {
     public Node anchor;
-    public Integer len;
+    public long len;
 
     public LinkedList(){
         anchor = new Node();
