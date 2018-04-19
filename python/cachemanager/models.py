@@ -86,10 +86,32 @@ class CacheManager(ramcloud.RAMCloud):
         logging.debug("CacheManager.get_cs_ratio called for cost: {}, size: {}".format(cost, size))
         integer = int(cost*self.max_size/float(size))
 
-        rounded_value = integer  # ToDo perform rounding scheme
+        rounded_value = self.do_rounding(integer, 4)  # ToDo perform rounding scheme
 
         logging.debug("CacheManager.get_cs_ratio: rounded value: {}".format(rounded_value))
         return rounded_value
+
+    def do_rounding(self, number, precision):
+        msb = 0
+        for i in range(1,33):
+            if self.is_kth_bit_set(number, i) == 1:
+                msb = i
+                break
+
+        if msb - precision > 0:
+            mask = 2**precision - 1
+            mask = mask << (msb-precision)
+            number = mask & number
+            return number
+        else:
+            return number
+
+    @staticmethod
+    def is_kth_bit_set(n, k):
+        if n & (1 << (k - 1)):
+            return 1
+        else:
+            return 0
 
     def read(self, table_id, id, want_version=None):
         logging.debug("CacheManager.read called with table_id: {}, id: {}, want_version: {}".
