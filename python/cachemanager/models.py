@@ -175,5 +175,6 @@ class CacheManager(ramcloud.RAMCloud):
                             del self.key_csratio[key_]
                             logging.debug("CacheManager.delete: deleted {} bytes".format(size))
                             return size
+                        node = node.next
         logging.debug("CacheManager.delete: deleted {} bytes".format(size))
         return size
