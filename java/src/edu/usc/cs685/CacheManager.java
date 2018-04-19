@@ -78,12 +78,48 @@ public class CacheManager extends RAMCloud {
         logger.log(Level.ALL, String.format("CacheManager.get_cs_ratio called for cost: %s, size: %s", cost, size));
         Integer integer = cost*max_size/size;
 
-        Integer rounded_value = integer;  // ToDo perform rounding scheme
+        Integer rounded_value = do_rounding(integer, 4);
 
         logger.log(Level.ALL, String.format("CacheManager.get_cs_ratio: rounded value: %s", rounded_value));
         return rounded_value;
     }
 
+    private static Integer do_rounding(Integer number, Integer precision)
+    {
+        Integer msb = 0;
+
+        for(int i=32; i>0; i--)
+        {
+            if((is_Kth_bit_set(number, i)) == 1)
+            {
+                msb = i;
+                break;
+            }
+        }
+        if(msb - precision > 0)
+        {
+            int mask = (int)Math.pow(2, precision) - 1;
+            mask = mask << (msb-precision);
+            number = mask & number;
+            return number;
+        }
+        else
+        {
+            return number;
+        }
+
+    }
+
+    private static int is_Kth_bit_set(Integer n, int k)
+    {
+
+        if ((n & (1 << (k-1))) >= 1)
+            return 1;
+        else
+            return 0;
+    }
+
+    @Override
     public long remove(long table_id, String id){
         logger.log(Level.ALL, String.format("CacheManager.delete called with table_id: %s, id: %s", table_id, id));
         super.remove(table_id, id);
@@ -142,5 +178,61 @@ public class CacheManager extends RAMCloud {
 
         logger.log(Level.ALL, String.format("CacheManager.delete: deleted %s bytes", size));
         return size;
+    }
+
+    @Override
+    public RAMCloudObject read(long table_id, String id) {
+        logger.log(Level.ALL, String.format("CacheManager.read called with table_id: %s, id: %s", table_id, id));
+        RAMCloudObject data = super.read(table_id, id);
+        String key_ = String.format("%s/%s", table_id, id);
+        Integer cs_ratio = key_csratio.get(key_);
+        if(cs_ratio != null){
+            LinkedList ll = csratio_ll.get(cs_ratio);
+            if (ll != null && ll.len > 0){
+                Node node = ll.anchor.next;
+                KeyMetaData key_meta_data = (KeyMetaData) node.data;
+                if(key_meta_data.table_id == table_id && key_meta_data.id.equals(id)){
+                    logger.log(Level.ALL, "CacheManager.read: reading head node");
+
+                    HeapObject to_remove = null;
+                    for (HeapObject iter : camp_heap) {
+                        if (iter.priority.equals(key_meta_data.priority)) {
+                            to_remove = iter;
+                            break;
+                        }
+                    }
+                    camp_heap.remove(to_remove);
+                    key_meta_data = (KeyMetaData) node.data;
+                    ll.unlink(node);
+                    key_csratio.remove(key_);
+                    if(ll.len > 0){
+                        KeyMetaData next_key_meta_data = (KeyMetaData) ll.anchor.next.data;
+                        logger.log(Level.ALL, String.format("CacheManager.read: heappush (%s, %s)", next_key_meta_data.priority, cs_ratio));
+                        camp_heap.add(new HeapObject(next_key_meta_data.priority, cs_ratio));
+                        L = camp_heap.peek().priority;
+                        logger.log(Level.ALL, String.format("CacheManager.read: updated L to: %s", L));
+                        key_meta_data.priority = L + cs_ratio;
+                    } else{
+                        key_meta_data.priority = L + cs_ratio;
+                        ll.append(key_meta_data);
+                        logger.log(Level.ALL, String.format("CacheManager.read: heappush (%s, %s)", key_meta_data.priority, cs_ratio));
+                        camp_heap.add(new HeapObject(key_meta_data.priority, cs_ratio));
+                    }
+                } else{
+                    node = node.next;
+                    while(node != null){
+                        key_meta_data = (KeyMetaData) node.data;
+                        if (key_meta_data.table_id == table_id && key_meta_data.id.equals(id)){
+                            ll.unlink(node);
+                            key_meta_data.priority = L + cs_ratio;
+                            logger.log(Level.ALL, String.format("CacheManager.read: new priority: %s", key_meta_data.priority));
+                            ll.append(key_meta_data);
+                        }
+                        node = node.next;
+                    }
+                }
+            }
+        }
+        return data;
     }
 }
