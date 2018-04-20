@@ -32,6 +32,7 @@ class CacheManager(ramcloud.RAMCloud):
         self.csratio_ll = {}
         self.L = 0
         self.max_size = 0
+        self.capacity = 0.8 * (35*1024*1024)
 
     def write(self, table_id, id, data, want_version=None, cost=1):
         data_size = len(data)
@@ -46,7 +47,10 @@ class CacheManager(ramcloud.RAMCloud):
             pass
 
         try:
-            super(CacheManager, self).write(table_id, id, data, want_version)
+            if self.capacity > data_size:
+                super(CacheManager, self).write(table_id, id, data, want_version)
+            else:
+                raise ramcloud.RetryExceptionError
         except ramcloud.RetryExceptionError:
             logging.debug("CacheManager.write: No free memory, will delete some data...")
             removed = 0

@@ -29,7 +29,5 @@ while 1:
     print cm.L
     print cm.max_size
     print "\n"
-    if i == 20:
-        cm.delete(table_id, "object1")
     i += 1
     time.sleep(2)
