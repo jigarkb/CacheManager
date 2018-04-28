@@ -5,8 +5,10 @@ import edu.usc.cs685.models.*;
 
 import java.util.HashMap;
 import java.util.PriorityQueue;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public class CacheManager extends RAMCloud {
     public PriorityQueue<HeapObject> camp_heap;
@@ -14,8 +16,7 @@ public class CacheManager extends RAMCloud {
     public HashMap<String, Integer> key_csratio;
     public Integer L;
     public Integer max_size;
-    public Logger logger = Logger.getLogger(CacheManager.class.getName());
-
+    public Logger log = Logger.getLogger(CacheManager.class.getName());
 
     public CacheManager(String locator, String clusterName) {
         super(locator, clusterName);
@@ -24,6 +25,11 @@ public class CacheManager extends RAMCloud {
         key_csratio = new HashMap<String, Integer>();
         L = 0;
         max_size = 0;
+        log.setLevel(Level.ALL);
+        ConsoleHandler handler = new ConsoleHandler();
+        handler.setLevel(Level.ALL);
+        handler.setFormatter(new SimpleFormatter());
+        log.addHandler(handler);
     }
 
     public long write(long table_id, String id, String value, Integer cost) {
@@ -35,13 +41,13 @@ public class CacheManager extends RAMCloud {
         try{
             remove(table_id, id);
         }catch (ClientException.ObjectExistsException e){
-            logger.log(Level.ALL, String.format("CacheManager.write deleting object table_id: %s, id: %s which does not exists!", table_id, id));
+            log.info(String.format("CacheManager.write deleting object table_id: %s, id: %s which does not exists!", table_id, id));
         }
 
         try {
             retval = super.write(table_id, id, value);
         }catch (ClientException.RetryException e){
-            logger.log(Level.ALL, "CacheManager.write: No free memory, will delete some data...");
+            log.info("CacheManager.write: No free memory, will delete some data...");
             long removed = 0;
             while(removed <= data_size){
                 HeapObject temp = camp_heap.peek();
@@ -49,38 +55,38 @@ public class CacheManager extends RAMCloud {
                 KeyMetaData camp_root = (KeyMetaData) ll.anchor.next.data;
                 removed += remove(camp_root.table_id, camp_root.id);
             }
-            logger.log(Level.ALL, String.format("CacheManager.write: data removed size: %s", removed));
+            log.info(String.format("CacheManager.write: data removed size: %s", removed));
             retval = super.write(table_id, id, value);
 
         }
-        logger.log(Level.ALL,"CacheManager.write: successfully cached new data");
+        log.info("CacheManager.write: successfully cached new data");
         Integer cs_ratio = get_cs_ratio(cost, data_size);
         Integer priority = L + cs_ratio;
         KeyMetaData key_meta_data = new KeyMetaData(table_id, id, cost, data_size, cs_ratio, priority);
 
         if(csratio_ll.get(cs_ratio) == null){
-            logger.log(Level.ALL, String.format("CacheManager.write: new cs_ratio %s seen, creating linkedlist", cs_ratio));
+            log.info(String.format("CacheManager.write: new cs_ratio %s seen, creating linkedlist", cs_ratio));
             csratio_ll.put(cs_ratio, new LinkedList());
             csratio_ll.get(cs_ratio).append(key_meta_data);
-            logger.log(Level.ALL, String.format("CacheManager.write: heappush (%s, %s)", priority, cs_ratio));
+            log.info(String.format("CacheManager.write: heappush (%s, %s)", priority, cs_ratio));
             camp_heap.add(new HeapObject(priority, cs_ratio));
         } else{
             csratio_ll.get(cs_ratio).append(key_meta_data);
         }
 
         String key_ = String.format("%s/%s", table_id, id);
-        logger.log(Level.ALL, String.format("CacheManager.write: associating key %sto cs_ratio %s", key_, cs_ratio));
+        log.info(String.format("CacheManager.write: associating key %sto cs_ratio %s", key_, cs_ratio));
         key_csratio.put(key_, cs_ratio);
         return retval;
     }
 
     private Integer get_cs_ratio(Integer cost, Integer size){
-        logger.log(Level.ALL, String.format("CacheManager.get_cs_ratio called for cost: %s, size: %s", cost, size));
+        log.info(String.format("CacheManager.get_cs_ratio called for cost: %s, size: %s", cost, size));
         Integer integer = cost*max_size/size;
 
         Integer rounded_value = do_rounding(integer, 4);
 
-        logger.log(Level.ALL, String.format("CacheManager.get_cs_ratio: rounded value: %s", rounded_value));
+        log.info(String.format("CacheManager.get_cs_ratio: rounded value: %s", rounded_value));
         return rounded_value;
     }
 
@@ -121,7 +127,7 @@ public class CacheManager extends RAMCloud {
 
     @Override
     public long remove(long table_id, String id){
-        logger.log(Level.ALL, String.format("CacheManager.delete called with table_id: %s, id: %s", table_id, id));
+        log.info(String.format("CacheManager.delete called with table_id: %s, id: %s", table_id, id));
         super.remove(table_id, id);
 
         Integer size = 0;
@@ -133,7 +139,7 @@ public class CacheManager extends RAMCloud {
                 Node node = ll.anchor.next;
                 KeyMetaData key_meta_data = (KeyMetaData) node.data;
                 if(key_meta_data.table_id == table_id && key_meta_data.id.equals(id)){
-                    logger.log(Level.ALL, "CacheManager.delete: deleting head node");
+                    log.info("CacheManager.delete: deleting head node");
                     size = key_meta_data.size;
 
                     HeapObject to_remove = null;
@@ -149,15 +155,15 @@ public class CacheManager extends RAMCloud {
                     if(ll.len > 0){
                         Node next_node = ll.anchor.next;
                         KeyMetaData next_key_meta_data = (KeyMetaData) next_node.data;
-                        logger.log(Level.ALL, String.format("CacheManager.delete: heappush (%s, %s)", next_key_meta_data.priority, cs_ratio));
+                        log.info(String.format("CacheManager.delete: heappush (%s, %s)", next_key_meta_data.priority, cs_ratio));
                         camp_heap.add(new HeapObject(next_key_meta_data.priority, cs_ratio));
                         L = camp_heap.peek().priority;
-                        logger.log(Level.ALL, String.format("CacheManager.delete: updated L to: %s",L));
+                        log.info(String.format("CacheManager.delete: updated L to: %s",L));
                     } else{
                         csratio_ll.remove(cs_ratio);
                     }
 
-                    logger.log(Level.ALL, String.format("CacheManager.delete: deleted %s bytes", size));
+                    log.info(String.format("CacheManager.delete: deleted %s bytes", size));
                     return size;
                 } else{
                     node = node.next;
@@ -167,7 +173,7 @@ public class CacheManager extends RAMCloud {
                             size = key_meta_data.size;
                             ll.unlink(node);
                             key_csratio.remove(key_);
-                            logger.log(Level.ALL, String.format("CacheManager.delete: deleted %s bytes", size));
+                            log.info(String.format("CacheManager.delete: deleted %s bytes", size));
                             return size;
                         }
                         node = node.next;
@@ -176,13 +182,13 @@ public class CacheManager extends RAMCloud {
             }
         }
 
-        logger.log(Level.ALL, String.format("CacheManager.delete: deleted %s bytes", size));
+        log.info(String.format("CacheManager.delete: deleted %s bytes", size));
         return size;
     }
 
     @Override
     public RAMCloudObject read(long table_id, String id) {
-        logger.log(Level.ALL, String.format("CacheManager.read called with table_id: %s, id: %s", table_id, id));
+        log.info(String.format("CacheManager.read called with table_id: %s, id: %s", table_id, id));
         RAMCloudObject data = super.read(table_id, id);
         String key_ = String.format("%s/%s", table_id, id);
         Integer cs_ratio = key_csratio.get(key_);
@@ -192,7 +198,7 @@ public class CacheManager extends RAMCloud {
                 Node node = ll.anchor.next;
                 KeyMetaData key_meta_data = (KeyMetaData) node.data;
                 if(key_meta_data.table_id == table_id && key_meta_data.id.equals(id)){
-                    logger.log(Level.ALL, "CacheManager.read: reading head node");
+                    log.info("CacheManager.read: reading head node");
 
                     HeapObject to_remove = null;
                     for (HeapObject iter : camp_heap) {
@@ -207,15 +213,15 @@ public class CacheManager extends RAMCloud {
                     key_csratio.remove(key_);
                     if(ll.len > 0){
                         KeyMetaData next_key_meta_data = (KeyMetaData) ll.anchor.next.data;
-                        logger.log(Level.ALL, String.format("CacheManager.read: heappush (%s, %s)", next_key_meta_data.priority, cs_ratio));
+                        log.info(String.format("CacheManager.read: heappush (%s, %s)", next_key_meta_data.priority, cs_ratio));
                         camp_heap.add(new HeapObject(next_key_meta_data.priority, cs_ratio));
                         L = camp_heap.peek().priority;
-                        logger.log(Level.ALL, String.format("CacheManager.read: updated L to: %s", L));
+                        log.info(String.format("CacheManager.read: updated L to: %s", L));
                         key_meta_data.priority = L + cs_ratio;
                     } else{
                         key_meta_data.priority = L + cs_ratio;
                         ll.append(key_meta_data);
-                        logger.log(Level.ALL, String.format("CacheManager.read: heappush (%s, %s)", key_meta_data.priority, cs_ratio));
+                        log.info(String.format("CacheManager.read: heappush (%s, %s)", key_meta_data.priority, cs_ratio));
                         camp_heap.add(new HeapObject(key_meta_data.priority, cs_ratio));
                     }
                 } else{
@@ -225,7 +231,7 @@ public class CacheManager extends RAMCloud {
                         if (key_meta_data.table_id == table_id && key_meta_data.id.equals(id)){
                             ll.unlink(node);
                             key_meta_data.priority = L + cs_ratio;
-                            logger.log(Level.ALL, String.format("CacheManager.read: new priority: %s", key_meta_data.priority));
+                            log.info(String.format("CacheManager.read: new priority: %s", key_meta_data.priority));
                             ll.append(key_meta_data);
                         }
                         node = node.next;
