@@ -13,7 +13,7 @@ public class TestCacheManager {
         CacheManager cm = new CacheManager("tcp:host=35.184.68.37,port=8001", "main");
         cm.createTable("table1");
         table_id = cm.getTableId("table1");
-        int sleep_time = 200;
+        int sleep_time = 100;
         int i = 0;
         char[] data = new char[1048576];
         String value = new String(data);
@@ -29,15 +29,14 @@ public class TestCacheManager {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            /*log.info(String.format("top of heap: (%s, %s)\nmax_size: %s\nL: %s\n",
-                    cm.camp_heap.peek().priority, cm.camp_heap.peek().cs_ratio, cm.max_size, cm.L));*/
-
+            log.info(String.format("objs len: %s\n",
+                    cm.csratio_ll.get(cm.camp_heap.peek().cs_ratio).len));
             try {
                 Thread.sleep(sleep_time);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            if(i == 650){
+            if(i == 1650){
                 break;
             }
         }
