@@ -6,32 +6,31 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
-class WriteThread extends Thread{
+class RCWriteThread extends Thread{
     private long table_id;
     private String id;
     private RAMCloud rc;
-    private char[] data = new char[1048576];
-    private String value = new String(data);
+    private String value;
 
-    WriteThread(long table_id, String id, RAMCloud rc)
-    {
+    RCWriteThread(long table_id, String id, String value, RAMCloud rc) {
         this.table_id = table_id;
         this.id = id;
         this.rc = rc;
+        this.value = value;
     }
 
-    public void run(){
+    public void run() {
         rc.write(table_id, id, value);
         System.out.println("Successfully written! " + id);
     }
 }
 
-class RemoveThread extends Thread{
+class RCRemoveThread extends Thread{
     private long table_id;
     private String id;
     private RAMCloud ob;
 
-    RemoveThread(long table_id, String id, RAMCloud ob)
+    RCRemoveThread(long table_id, String id, RAMCloud ob)
     {
         this.table_id = table_id;
         this.id = id;
@@ -49,10 +48,6 @@ public class TestRAMCloud{
 
     public static void main(String args[]){
         log.setLevel(Level.ALL);
-        ConsoleHandler handler = new ConsoleHandler();
-        handler.setLevel(Level.ALL);
-        handler.setFormatter(new SimpleFormatter());
-        log.addHandler(handler);
 
         long table_id;
         RAMCloud rc = new RAMCloud("tcp:host=35.184.68.37,port=8001", "main");
@@ -61,13 +56,16 @@ public class TestRAMCloud{
         int thread_timeout = 5 * 1000;
         int sleep_time = 100;
         int i = 0;
+        char[] data = new char[1048576];
+        String value = new String(data);
+
         String object_id;
 
         log.info("Writing...");
         while(true) {
             i += 1;
             object_id = "object" + Integer.toString(i);
-            WriteThread w = new WriteThread(table_id,object_id,rc);
+            RCWriteThread w = new RCWriteThread(table_id, object_id, value, rc);
             w.start();
             try {
                 w.join(thread_timeout);
@@ -97,7 +95,7 @@ public class TestRAMCloud{
                 e.printStackTrace();
             }
             object_id = "object" + Integer.toString(j);
-            RemoveThread r = new RemoveThread(table_id ,object_id, rc);
+            RCRemoveThread r = new RCRemoveThread(table_id ,object_id, rc);
             r.start();
             try {
                 r.join(thread_timeout);

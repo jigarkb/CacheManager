@@ -5,10 +5,47 @@ import edu.usc.cs685.models.*;
 
 import java.util.HashMap;
 import java.util.PriorityQueue;
-import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
+
+class CMWriteThread extends Thread{
+    private long table_id;
+    private String id;
+    private CacheManager cm;
+    private String value;
+    public long retval;
+
+    CMWriteThread(long table_id, String id, String value, CacheManager cm) {
+        this.table_id = table_id;
+        this.id = id;
+        this.cm = cm;
+        this.value = value;
+    }
+
+    public void run() {
+        retval = cm.write(table_id, id, value);
+        System.out.println("Successfully written! " + id);
+    }
+}
+
+class CMRemoveThread extends Thread{
+    private long table_id;
+    private String id;
+    private CacheManager cm;
+
+    CMRemoveThread(long table_id, String id, CacheManager cm)
+    {
+        this.table_id = table_id;
+        this.id = id;
+        this.cm = cm;
+    }
+
+    public void run(){
+        cm.remove(table_id,id);
+        System.out.println("Successfully deleted!");
+    }
+}
+
 
 public class CacheManager extends RAMCloud {
     public PriorityQueue<HeapObject> camp_heap;
@@ -17,6 +54,7 @@ public class CacheManager extends RAMCloud {
     public Integer L;
     public Integer max_size;
     public Logger log = Logger.getLogger(CacheManager.class.getName());
+    public Integer thread_timeout;
 
     public CacheManager(String locator, String clusterName) {
         super(locator, clusterName);
@@ -25,40 +63,45 @@ public class CacheManager extends RAMCloud {
         key_csratio = new HashMap<String, Integer>();
         L = 0;
         max_size = 0;
+        thread_timeout = 5 * 1000;
         log.setLevel(Level.ALL);
-        ConsoleHandler handler = new ConsoleHandler();
-        handler.setLevel(Level.ALL);
-        handler.setFormatter(new SimpleFormatter());
-        log.addHandler(handler);
     }
 
-    public long write(long table_id, String id, String value, Integer cost) {
+    public long write(long table_id, String id, String value, Integer cost) throws InterruptedException {
         long retval;
         Integer data_size = value.length();
         if(max_size < data_size){
             max_size = data_size;
         }
+        log.info(String.format("CacheManager.write called with object table_id: %s, id: %s", table_id, id));
         try{
-            remove(table_id, id);
+            this.remove(table_id, id);
         }catch (ClientException.ObjectExistsException e){
             log.info(String.format("CacheManager.write deleting object table_id: %s, id: %s which does not exists!", table_id, id));
         }
 
-        try {
-            retval = super.write(table_id, id, value);
-        }catch (ClientException.RetryException e){
+
+        CMWriteThread cmw = new CMWriteThread(table_id, id, value, this);
+        cmw.start();
+        cmw.join(thread_timeout);
+        if(cmw.isAlive()) {
+            log.info(String.format("Write Thread for table_id: %s, id: %s timed out!", table_id, id));
             log.info("CacheManager.write: No free memory, will delete some data...");
             long removed = 0;
-            while(removed <= data_size){
+            while(removed < data_size * 1.2){
                 HeapObject temp = camp_heap.peek();
                 LinkedList ll = csratio_ll.get(temp.cs_ratio);
                 KeyMetaData camp_root = (KeyMetaData) ll.anchor.next.data;
-                removed += remove(camp_root.table_id, camp_root.id);
+                removed += this.remove(camp_root.table_id, camp_root.id, "");
             }
             log.info(String.format("CacheManager.write: data removed size: %s", removed));
-            retval = super.write(table_id, id, value);
-
+            cmw.join();
+            retval = cmw.retval;
+        }else{
+            log.info(String.format("Write Thread for table_id: %s, id: %s joined!", table_id, id));
+            retval = cmw.retval;
         }
+
         log.info("CacheManager.write: successfully cached new data");
         Integer cs_ratio = get_cs_ratio(cost, data_size);
         Integer priority = L + cs_ratio;
@@ -71,11 +114,12 @@ public class CacheManager extends RAMCloud {
             log.info(String.format("CacheManager.write: heappush (%s, %s)", priority, cs_ratio));
             camp_heap.add(new HeapObject(priority, cs_ratio));
         } else{
+            log.info(String.format("CacheManager.write: appending to linked list (%s, %s)", priority, cs_ratio));
             csratio_ll.get(cs_ratio).append(key_meta_data);
         }
 
         String key_ = String.format("%s/%s", table_id, id);
-        log.info(String.format("CacheManager.write: associating key %sto cs_ratio %s", key_, cs_ratio));
+        log.info(String.format("CacheManager.write: associating key %s to cs_ratio %s", key_, cs_ratio));
         key_csratio.put(key_, cs_ratio);
         return retval;
     }
@@ -125,17 +169,27 @@ public class CacheManager extends RAMCloud {
             return 0;
     }
 
-    @Override
-    public long remove(long table_id, String id){
+    public long remove(long table_id, String id, String dummy) throws InterruptedException {
         log.info(String.format("CacheManager.delete called with table_id: %s, id: %s", table_id, id));
         super.remove(table_id, id);
+        CMRemoveThread cmr = new CMRemoveThread(table_id, id, this);
+        cmr.start();
+        cmr.join(thread_timeout);
+        if(cmr.isAlive()) {
+            log.info(String.format("Delete Thread for table_id: %s, id: %s timed out!", table_id, id));
+        }else{
+            log.info(String.format("Delete Thread for table_id: %s, id: %s joined!", table_id, id));
+        }
 
+        log.info("let's update camp data structures");
         Integer size = 0;
         String key_ = String.format("%s/%s", table_id, id);
         Integer cs_ratio = key_csratio.get(key_);
         if(cs_ratio != null){
+            log.info("cs_ratio linkedlist present");
             LinkedList ll = csratio_ll.get(cs_ratio);
             if (ll != null && ll.len > 0){
+                log.info("cs_ratio linkedlist present");
                 Node node = ll.anchor.next;
                 KeyMetaData key_meta_data = (KeyMetaData) node.data;
                 if(key_meta_data.table_id == table_id && key_meta_data.id.equals(id)){
@@ -166,8 +220,9 @@ public class CacheManager extends RAMCloud {
                     log.info(String.format("CacheManager.delete: deleted %s bytes", size));
                     return size;
                 } else{
+                    log.info("CacheManager.delete: deleting not a head node");
                     node = node.next;
-                    while(node != null){
+                    while(node != ll.anchor){
                         key_meta_data = (KeyMetaData) node.data;
                         if (key_meta_data.table_id == table_id && key_meta_data.id.equals(id)){
                             size = key_meta_data.size;
@@ -226,7 +281,7 @@ public class CacheManager extends RAMCloud {
                     }
                 } else{
                     node = node.next;
-                    while(node != null){
+                    while(node != ll.anchor){
                         key_meta_data = (KeyMetaData) node.data;
                         if (key_meta_data.table_id == table_id && key_meta_data.id.equals(id)){
                             ll.unlink(node);
