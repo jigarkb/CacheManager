@@ -8,26 +8,6 @@ import java.util.PriorityQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-class CMWriteThread extends Thread{
-    private long table_id;
-    private String id;
-    private CacheManager cm;
-    private String value;
-    public long retval;
-
-    CMWriteThread(long table_id, String id, String value, CacheManager cm) {
-        this.table_id = table_id;
-        this.id = id;
-        this.cm = cm;
-        this.value = value;
-    }
-
-    public void run() {
-        retval = cm.write(table_id, id, value);
-    }
-}
-
-
 public class CacheManager extends RAMCloud {
     public PriorityQueue<HeapObject> camp_heap;
     public HashMap<Integer, LinkedList> csratio_ll;
@@ -64,7 +44,7 @@ public class CacheManager extends RAMCloud {
         }
         log.info(String.format("CacheManager.write: called with object table_id: %s, id: %s", table_id, id));
         try{
-            remove(table_id, id);
+            remove(table_id, id, Boolean.TRUE);
         }catch (ClientException.ObjectExistsException e){
             log.info(String.format("CacheManager.write: deleting object table_id: %s, id: %s which does not exists!", table_id, id));
         }
@@ -169,9 +149,15 @@ public class CacheManager extends RAMCloud {
     }
 
     @Override
-    public long remove(long table_id, String id) {
-        log.info(String.format("CacheManager.delete called with table_id: %s, id: %s", table_id, id));
-        super.remove(table_id, id);
+    public long remove(long table_id, String id){
+        return remove(table_id, id, Boolean.FALSE);
+    }
+
+    public long remove(long table_id, String id, Boolean camp_ds_only) {
+        if(!camp_ds_only){
+            log.info(String.format("CacheManager.delete called with table_id: %s, id: %s", table_id, id));
+            super.remove(table_id, id);
+        }
         log.info("let's update camp data structures");
         Integer size = 0;
         String key_ = String.format("%s/%s", table_id, id);
@@ -287,5 +273,24 @@ public class CacheManager extends RAMCloud {
             }
         }
         return data;
+    }
+}
+
+class CMWriteThread extends Thread{
+    private long table_id;
+    private String id;
+    private CacheManager cm;
+    private String value;
+    public long retval;
+
+    CMWriteThread(long table_id, String id, String value, CacheManager cm) {
+        this.table_id = table_id;
+        this.id = id;
+        this.cm = cm;
+        this.value = value;
+    }
+
+    public void run() {
+        retval = cm.write(table_id, id, value);
     }
 }
