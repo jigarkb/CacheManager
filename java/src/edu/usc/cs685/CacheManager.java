@@ -24,7 +24,6 @@ class CMWriteThread extends Thread{
 
     public void run() {
         retval = cm.write(table_id, id, value);
-        System.out.println("Successfully written: " + id);
     }
 }
 
@@ -50,20 +49,11 @@ public class CacheManager extends RAMCloud {
         thread_timeout = 5 * 1000;
         server_capacity = 0.0;
         capacity_determined = Boolean.FALSE;
-        log.setLevel(Level.ALL);
+        log.setLevel(Level.OFF);
     }
 
     public CacheManager(String locator) {
-        super(locator);
-        camp_heap = new PriorityQueue<HeapObject>((o1, o2) -> o1.priority - o2.priority);
-        csratio_ll = new HashMap<Integer, LinkedList>();
-        key_csratio = new HashMap<String, Integer>();
-        L = 0;
-        max_size = 0;
-        thread_timeout = 5 * 1000;
-        server_capacity = 0.0;
-        capacity_determined = Boolean.FALSE;
-        log.setLevel(Level.ALL);
+        this(locator, "main");
     }
 
     public long write(long table_id, String id, String value, Integer cost) throws InterruptedException {
