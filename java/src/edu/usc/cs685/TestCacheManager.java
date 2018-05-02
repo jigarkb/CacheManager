@@ -4,7 +4,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class TestCacheManager {
-    private static Logger log = Logger.getLogger(TestRAMCloud.class.getName());
+    private static Logger log = Logger.getLogger(TestCacheManager.class.getName());
 
     public static void main(String args[]){
         log.setLevel(Level.ALL);

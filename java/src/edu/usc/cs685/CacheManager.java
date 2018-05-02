@@ -53,6 +53,19 @@ public class CacheManager extends RAMCloud {
         log.setLevel(Level.ALL);
     }
 
+    public CacheManager(String locator) {
+        super(locator);
+        camp_heap = new PriorityQueue<HeapObject>((o1, o2) -> o1.priority - o2.priority);
+        csratio_ll = new HashMap<Integer, LinkedList>();
+        key_csratio = new HashMap<String, Integer>();
+        L = 0;
+        max_size = 0;
+        thread_timeout = 5 * 1000;
+        server_capacity = 0.0;
+        capacity_determined = Boolean.FALSE;
+        log.setLevel(Level.ALL);
+    }
+
     public long write(long table_id, String id, String value, Integer cost) throws InterruptedException {
         long retval;
         Integer data_size = value.length();
@@ -61,7 +74,7 @@ public class CacheManager extends RAMCloud {
         }
         log.info(String.format("CacheManager.write: called with object table_id: %s, id: %s", table_id, id));
         try{
-            remove(table_id, id, "");
+            remove(table_id, id);
         }catch (ClientException.ObjectExistsException e){
             log.info(String.format("CacheManager.write: deleting object table_id: %s, id: %s which does not exists!", table_id, id));
         }
@@ -88,7 +101,7 @@ public class CacheManager extends RAMCloud {
                 HeapObject temp = camp_heap.peek();
                 LinkedList ll = csratio_ll.get(temp.cs_ratio);
                 KeyMetaData camp_root = (KeyMetaData) ll.anchor.next.data;
-                removed += remove(camp_root.table_id, camp_root.id, "");
+                removed += remove(camp_root.table_id, camp_root.id);
             }
             log.info(String.format("CacheManager.write: data removed size: %s", removed));
             cmw.join();
@@ -165,7 +178,8 @@ public class CacheManager extends RAMCloud {
             return 0;
     }
 
-    public long remove(long table_id, String id, String dummy) {
+    @Override
+    public long remove(long table_id, String id) {
         log.info(String.format("CacheManager.delete called with table_id: %s, id: %s", table_id, id));
         super.remove(table_id, id);
         log.info("let's update camp data structures");
