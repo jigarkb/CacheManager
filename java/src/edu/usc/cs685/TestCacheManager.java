@@ -10,7 +10,7 @@ public class TestCacheManager {
         log.setLevel(Level.ALL);
 
         long table_id;
-        CacheManager cm = new CacheManager("tcp:host=35.184.68.37,port=8001", "main");
+        CacheManager cm = new CacheManager("tcp:host=server_hostname,port=8001", "main");
         cm.createTable("table1");
         table_id = cm.getTableId("table1");
         int sleep_time = 100;
