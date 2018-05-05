@@ -1,6 +1,11 @@
 # CacheManager
 This is a simple client side cachemanager library which is built on top of [RAMCloud](https://ramcloud.stanford.edu) and supports single client and single server. It uses [CAMP](https://dl.acm.org/citation.cfm?id=2663317) eviction policy to evict objects. 
 
+There are two major observation which geared our design choices. 
+* Most RAMCloud operations including "write" do not return until they are successfully completed. So if memory is exhausted on the server, it keeps on retrying but does not return. So we decided to run the write operation in a new thread and wait for it to join until predefined timeout. If thread join operation returns and thread is still alive we consider it as a notification of memory full on the server.
+
+* RAMCloud deadlocks on very high memory utilization. This is because log cleaner is not able to generate any free log segments and delete operation cannot write tombstone records as there is not enough memory. To prevent this it is recommended to provide atleast 512 MB memory to the server. Because of this reason, working at near 100% utilization is not recommended and we chose to work on 90% utilization. To prevent hard-coding memory capacity on client, we chose a clever approach. We keep track of total records size successfully written (and deleted) and whenever the first write thread times out, we consider the total record size written as server memory capacity. We remove records amounting to 10% of this size right away and maintain 90% utilization there after. This approach has many benefits, one being that now onwards no write thread stalls as we always find enough memory on the server. 
+
 This library is developed, tested and benchmarked on Debian 8 on Google Compute Engine instances. Following steps are required to run on bare-bone machine:
 
 ### Create a new user and give the newly created user the admin  permissions
