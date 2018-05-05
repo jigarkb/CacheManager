@@ -42,6 +42,10 @@ Let's create swap space so that we can build RAMCloud.
     $ make install
 
 ### Setup Server: Run coordinator and master
+    $ sudo vim /etc/security/limits.conf
+        append these lines to increase memlock limit
+        *       hard    memlock unlimited
+        *       soft    memlock unlimited
     $ ./obj.master/coordinator -C tcp:host=`hostname -s`,port=8001 
     $ ./obj.master/server -r 0 -L tcp:host=`hostname -s`,port=8002 -C tcp:host=`hostname -s`,port=8001 --totalMasterMemory 512 --maxCores 5 --masterOnly 
     
