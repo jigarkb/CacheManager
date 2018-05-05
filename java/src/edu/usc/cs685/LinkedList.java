@@ -27,7 +27,6 @@ public class LinkedList {
         node.next.prev = node.prev;
         node.next = null;
         node.prev = null;
-        node.data = null;
         len -= 1;
     }
 

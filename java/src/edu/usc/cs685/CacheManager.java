@@ -18,6 +18,8 @@ public class CacheManager extends RAMCloud {
     public Integer thread_timeout;
     public Double server_capacity;
     public Boolean capacity_determined;
+    public Integer eviction_count;
+    public Integer miss_count;
 
     public CacheManager(String locator, String clusterName) {
         super(locator, clusterName);
@@ -26,9 +28,11 @@ public class CacheManager extends RAMCloud {
         key_csratio = new HashMap<String, Integer>();
         L = 0;
         max_size = 0;
-        thread_timeout = 5 * 1000;
+        thread_timeout = 10 * 1000;
         server_capacity = 0.0;
         capacity_determined = Boolean.FALSE;
+        eviction_count = 0;
+        miss_count = 0;
         log.setLevel(Level.OFF);
     }
 
@@ -72,7 +76,9 @@ public class CacheManager extends RAMCloud {
                 LinkedList ll = csratio_ll.get(temp.cs_ratio);
                 KeyMetaData camp_root = (KeyMetaData) ll.anchor.next.data;
                 removed += remove(camp_root.table_id, camp_root.id);
+                eviction_count += 1;
             }
+            miss_count += 1;
             log.info(String.format("CacheManager.write: data removed size: %s", removed));
             cmw.join();
             retval = cmw.retval;
@@ -243,7 +249,6 @@ public class CacheManager extends RAMCloud {
                     camp_heap.remove(to_remove);
                     key_meta_data = (KeyMetaData) node.data;
                     ll.unlink(node);
-                    key_csratio.remove(key_);
                     if(ll.len > 0){
                         KeyMetaData next_key_meta_data = (KeyMetaData) ll.anchor.next.data;
                         log.info(String.format("CacheManager.read: heappush (%s, %s)", next_key_meta_data.priority, cs_ratio));
@@ -251,6 +256,7 @@ public class CacheManager extends RAMCloud {
                         L = camp_heap.peek().priority;
                         log.info(String.format("CacheManager.read: updated L to: %s", L));
                         key_meta_data.priority = L + cs_ratio;
+                        ll.append(key_meta_data);
                     } else{
                         key_meta_data.priority = L + cs_ratio;
                         ll.append(key_meta_data);
@@ -266,6 +272,7 @@ public class CacheManager extends RAMCloud {
                             key_meta_data.priority = L + cs_ratio;
                             log.info(String.format("CacheManager.read: new priority: %s", key_meta_data.priority));
                             ll.append(key_meta_data);
+                            break;
                         }
                         node = node.next;
                     }
