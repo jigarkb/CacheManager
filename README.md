@@ -54,7 +54,7 @@ Let's create swap space so that we can build RAMCloud.
         append the file with server_hostname	XX.XXX.XX.XX
     $ git clone https://github.com/jigarkb/CacheManager.git
     
-    // Build Java project and run test code
+    // Build Java project and run test code (python code is little outdated and untested)
     $ cd CacheManager/java
     $ java -classpath ~/CacheManager/java/out/production/CacheManager:~/RAMCloud/install/lib/ramcloud/ramcloud.jar edu.usc.cs685.TestCacheManager
     
