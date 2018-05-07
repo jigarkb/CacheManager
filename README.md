@@ -1,5 +1,7 @@
 # CacheManager
-This is a simple client side cachemanager library which is built on top of [RAMCloud](https://ramcloud.stanford.edu) and supports single client and single server. It uses [CAMP](https://dl.acm.org/citation.cfm?id=2663317) eviction policy to evict objects. 
+A simple client side cachemanager library which is built on top of [RAMCloud](https://ramcloud.stanford.edu) and supports single client and single server. It uses [CAMP](https://dl.acm.org/citation.cfm?id=2663317) eviction policy to evict objects.
+
+I chose to work on this project as a part of USC's "CS685: Advanced Topics in Database Systems" class. This is just a proof of concept project with no production value. I plan to develop the concept on server-side so as to support multiple clients and/or servers in near future as a side project.
 
 There are two major observation which geared our design choices. 
 * Most RAMCloud operations including "write" do not return until they are successfully completed. So if memory is exhausted on the server, it keeps on retrying but does not return. So we decided to run the write operation in a new thread and wait for it to join until predefined timeout. If thread join operation returns and thread is still alive we consider it as a notification of memory full on the server.
